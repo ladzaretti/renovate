@@ -191,4 +191,22 @@ describe('versioning/pep440/index', () => {
       expect(pep440.isLessThanRange?.(version, range)).toBe(expected);
     }
   );
+  test.each`
+    currentValue            | rangeStrategy | currentVersion | newVersion  | expected
+    ${'>=19.12.2,<19.13.0'} | ${'replace'}  | ${'19.12.2'}   | ${'20.3.0'} | ${'>=19.12.2,<20.4.0'}
+    ${'<1.2.3'}             | ${'bump'}     | ${'1.0.0'}     | ${'2.0.0'}  | ${'<2.1.0'}
+    ${'==3.2.*,>=3.2.2'}    | ${'replace'}  | ${'3.2.2'}     | ${'4.1.1'}  | ${'==4.1.*'}
+    ${'==3.2.*,>=3.2.2'}    | ${'replace'}  | ${'3.2.2'}     | ${'4.0.0'}  | ${'==4.0.*'}
+  `(
+    'getNewValueBug("$currentValue", "$rangeStrategy", "$currentVersion", "$newVersion") === "$expected"',
+    ({ currentValue, rangeStrategy, currentVersion, newVersion, expected }) => {
+      const res = pep440.getNewValue({
+        currentValue,
+        rangeStrategy,
+        currentVersion,
+        newVersion,
+      });
+      expect(res).toEqual(expected);
+    }
+  );
 });
