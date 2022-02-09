@@ -126,7 +126,7 @@ export function getNewValue({
   // Unsupported rangeStartegy
   // Valid rangeStrategy values are: bump, extend, pin, replace.
   // https://docs.renovatebot.com/modules/versioning/#pep440-versioning
-  if (!['replace', 'bump'].includes(rangeStrategy)) {
+  if (!['replace', 'bump', 'widen'].includes(rangeStrategy)) {
     logger.debug(
       'Unsupported rangeStrategy: ' +
         rangeStrategy +
@@ -182,14 +182,14 @@ export function getNewValue({
         if (gte(newVersion, range.version)) {
           // newVersion is out of current range
           // get current user's range precision
-          // const userReplacePolicy = getUserReplacePrecision(ranges);
-          // if (rangeStrategy === 'replace' && userReplacePolicy != null) {
-          //   //
-          //   return (
-          //     range.operator +
-          //     getFutureReplaceVersion(newVersion, userReplacePolicy)
-          //   );
-          // }
+          const userReplacePolicy = getUserReplacePrecision(ranges);
+          if (rangeStrategy === 'replace' && userReplacePolicy != null) {
+            //
+            return (
+              range.operator +
+              getFutureReplaceVersion(newVersion, userReplacePolicy)
+            );
+          }
           // now here things get tricky
           // we calculate the new future version
           const futureVersion = getFutureVersion(range.version, newVersion, 1);
