@@ -13,28 +13,18 @@ function getFutureVersion(
   const toRelease: number[] = parseVersion(newVersion)?.release ?? [];
   const baseRelease: number[] = parseVersion(baseVersion)?.release ?? [];
   let found = false;
-  let set = -1;
   const futureRelease = baseRelease.map((basePart, index) => {
-    const toPart = toRelease[index] || 0;
-    if (found && set === -1) {
-      set = index;
-      return toPart;
-    }
     if (found) {
       return 0;
     }
+    const toPart = toRelease[index] || 0;
     if (toPart > basePart) {
       found = true;
+      return toPart + step;
     }
     return toPart;
   });
-  if (set !== -1) {
-    futureRelease[set === futureRelease.length - 1 ? set - 1 : set] += step;
-  }
   if (!found) {
-    futureRelease[futureRelease.length - 1] += step;
-  }
-  if (found && set === -1) {
     futureRelease[futureRelease.length - 1] += step;
   }
   return futureRelease.join('.');
