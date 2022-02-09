@@ -5,6 +5,62 @@ import { logger } from '../../logger';
 import { regEx } from '../../util/regex';
 import type { NewValueConfig } from '../types';
 
+enum ReplaceUserPolicy {
+  Major = 0,
+  Minor,
+  Micro,
+  Bug,
+}
+
+/**
+ *
+ * @param ranges A {@link Range} array consists of user's allowed range
+ * @returns A {@link ReplaceUserPolicy} set by the user
+ * examlpe:
+ * let >=19.12.2,<19.13.0 be user's range of exepted updates.
+ * the corresponding return value will be "Minor".
+ * let >=19.12.2,<20.12.9, "Major" will be returned.
+ */
+function getUserReplacePrecision(ranges: Range[]): ReplaceUserPolicy | null {
+  if (ranges.length !== 2) {
+    return null;
+  }
+  const lowerBound: number[] = parseVersion(ranges[0].version)?.release ?? [];
+  const upperBound: number[] = parseVersion(ranges[1].version)?.release ?? [];
+  const index = upperBound.findIndex((el, index) => el > lowerBound[index]);
+  return ReplaceUserPolicy[ReplaceUserPolicy[index]];
+}
+
+/**
+ *
+ * @param newVersion A newly accepted update version
+ * @param policy The user's range update precision
+ * @returns A string represents a future version upper bound.
+ *
+ * example: newVersion set to be 20.3.2 and policy is "Minor".
+ * 20.4.0 will be returned.
+ * if policy == "Major", 21.0.0 will be returned.
+ */
+function getFutureReplaceVersion(
+  newVersion: string,
+  policy: ReplaceUserPolicy
+): string {
+  const toRelease: number[] = parseVersion(newVersion)?.release ?? [];
+  const futureVersion = toRelease.map((num, index) => {
+    // if (policy == toRelease.length - 1) {
+    //   policy--;
+    // }
+    if (index < policy) {
+      return num;
+    }
+    if (index == policy) {
+      return num + 1;
+    }
+    return 0;
+  });
+  return futureVersion.join('.');
+}
+
 function getFutureVersion(
   baseVersion: string,
   newVersion: string,
@@ -46,6 +102,7 @@ export function getNewValue({
   if (rangeStrategy === 'pin') {
     return '==' + newVersion;
   }
+  // no symbol: accept only that specific version specifed
   if (currentValue === currentVersion) {
     return newVersion;
   }
@@ -60,11 +117,15 @@ export function getNewValue({
     logger.warn('Empty currentValue: ' + currentValue);
     return currentValue;
   }
+  // newVersion is within range
   if (rangeStrategy === 'auto' || rangeStrategy === 'replace') {
     if (satisfies(newVersion, currentValue)) {
       return currentValue;
     }
   }
+  // Unsupported rangeStartegy
+  // Valid rangeStrategy values are: bump, extend, pin, replace.
+  // https://docs.renovatebot.com/modules/versioning/#pep440-versioning
   if (!['replace', 'bump'].includes(rangeStrategy)) {
     logger.debug(
       'Unsupported rangeStrategy: ' +
@@ -97,21 +158,38 @@ export function getNewValue({
       // used to mark minimum supported version
       if (['>', '>='].includes(range.operator)) {
         if (lte(newVersion, range.version)) {
+          // lower the bound if the new version is lower than current range
           // this looks like a rollback
           return '>=' + newVersion;
         }
         // this is similar to ~=
-        if (rangeStrategy === 'bump' && range.operator === '>=') {
+        // For example, the following version clauses are equivalent:
+        // ~= 2.2
+        // >= 2.2, == 2.*
+        // handle lower bound.
+        if (
+          ['replace', 'bump'].includes(rangeStrategy) &&
+          range.operator === '>='
+        ) {
           return range.operator + newVersion;
         }
         // otherwise treat it same as exclude
         return range.operator + range.version;
       }
-
       // this is used to exclude future versions
       if (range.operator === '<') {
         // if newVersion is that future version
         if (gte(newVersion, range.version)) {
+          // newVersion is out of current range
+          // get current user's range precision
+          // const userReplacePolicy = getUserReplacePrecision(ranges);
+          // if (rangeStrategy === 'replace' && userReplacePolicy != null) {
+          //   //
+          //   return (
+          //     range.operator +
+          //     getFutureReplaceVersion(newVersion, userReplacePolicy)
+          //   );
+          // }
           // now here things get tricky
           // we calculate the new future version
           const futureVersion = getFutureVersion(range.version, newVersion, 1);

@@ -7,7 +7,10 @@
   "extensions": [
     "dbaeumer.vscode-eslint",
     "esbenp.prettier-vscode",
-    "orta.vscode-jest"
+    "github.vscode-pull-request-github",
+    "eamodio.gitlens",
+    "albert.tabout",
+    "firsttris.vscode-jest-runner"
   ],
   "runArgs": [
     "--cap-add=SYS_PTRACE",
